@@ -1,0 +1,52 @@
+---
+- name: create local directory for syncing chaincodes
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - shell: touch /tmp/chaincodes/
+  tags: "Pull"
+
+- name: fetch chaincodes
+  hosts: peer
+  become: yes
+  strategy: linear
+  serial: 3
+  gather_facts: no
+  tasks:
+    - synchronize:
+#        src: "/var/lib/docker/volumes/peer_{{ ansible_hostname }}/_data/chaincodes/"
+        src: "/var/lib/docker/volumes/peer_peer0/_data/chaincodes/"
+        dest: /tmp/chaincodes/
+        mode: pull
+        delete: no
+    - synchronize:
+#        src: "/var/lib/docker/volumes/peer_{{ ansible_hostname }}/_data/chaincodes/"
+        src: "/var/lib/docker/volumes/peer_peer0/_data/chaincodes/"
+        dest: /tmp/chaincodes/
+        mode: pull
+        delete: no
+    - name: check for 0 size chaincodes
+      shell: find "/tmp/chaincodes/" -size 0
+      delegate_to: localhost
+      become: no
+      register: zero_size_files
+    - name: removing the 0 size files.
+      shell: "rm -f {{ item }}"
+      with_items: "{{ zero_size_files.stdout_lines  }}"
+      delegate_to: localhost
+      become: no
+  tags: "Pull"
+
+- name: sync chaincodes on peers
+  hosts: peer
+  become: yes
+  strategy: linear
+  serial: 5
+  gather_facts: no
+  tasks:
+    - synchronize:
+#        dest: "/var/lib/docker/volumes/peer_{{ ansible_hostname }}/_data/chaincodes/"
+        dest: "/var/lib/docker/volumes/peer_peer0/_data/chaincodes/"
+        src: /tmp/chaincodes/
+        mode: push
+  tags: "Push"
